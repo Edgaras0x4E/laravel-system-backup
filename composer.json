@@ -1,0 +1,39 @@
+{
+    "name": "edgaras/laravel-system-backup",
+    "description": "Laravel package to perform a full system backup, compress it into a zip file, and optionally email it or upload to the cloud.",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Edgaras\\SystemBackup\\": "src/"
+        } 
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Edgaras\\SystemBackup\\Tests\\": "tests/"
+        }
+    },
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^12.0",
+        "illuminate/console": "^12.0",
+        "illuminate/filesystem": "^12.0",
+        "illuminate/mail": "^12.0", 
+        "illuminate/routing": "^12.0",
+        "illuminate/view": "^12.0",
+        "illuminate/queue": "^12.0",
+        "illuminate/bus": "^12.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Edgaras\\SystemBackup\\Providers\\BackupServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
