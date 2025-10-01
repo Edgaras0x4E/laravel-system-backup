@@ -1,4 +1,4 @@
-# Laravel System Backup
+# Laravel System Backup v0.2.0
 
 Laravel package to perform a full system backup, compress it into a zip file, and optionally email it or upload to the cloud.
 
@@ -13,6 +13,16 @@ Laravel package to perform a full system backup, compress it into a zip file, an
 - Upload to any configured **filesystem disk** (e.g. [Azure](https://github.com/Azure-OSS/azure-storage-php-adapter-laravel), S3) and generate a **signed URL**.
 - Send a configurable **email** with the local path or cloud link.
 - Artisan command `backup:system` with `--email` flag.
+
+---
+
+## Changelog
+
+### v0.2.0
+- **Fixed retention off‑by‑one (cloud)**: deletes one too many/too few backups.
+- **Signed local download links in emails**: generate a temporary signed URL to the provided download route instead of emailing a local filesystem path.
+- **Route configurability**: added prefix for the download route.
+- **Safer, scalable cloud uploads**: stream file to the disk; gracefully handle drivers without temporaryUrl.
 
 ---
 
@@ -114,10 +124,13 @@ return [
         ], 
         'use_cloud_link' => false,
     ],
+    // Signed local download link expiry, in hours
+    'download_link_expiry' => 24,
 
     // Route that serves local downloads (signed)
     'download_route' => [
         'middleware' => ['web', 'signed'],
+        'prefix' => '/backups/download'
     ],
 ];
 ```

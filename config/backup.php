@@ -38,7 +38,10 @@ return [
         ],
         'use_cloud_link' => false,  
     ], 
+  
+    'download_link_expiry' => 24,
     'download_route' => [
         'middleware' => ['web', 'signed'],
+        'prefix' => '/backups/download',
     ],
 ];

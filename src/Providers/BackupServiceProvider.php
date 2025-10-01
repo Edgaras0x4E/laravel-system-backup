@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Route;
 use Edgaras\SystemBackup\Console\Commands\BackupSystemCommand;
 use Edgaras\SystemBackup\Services\BackupService;
+use Edgaras\SystemBackup\Http\Controllers\BackupDownloadController;
 
 class BackupServiceProvider extends ServiceProvider
 {
@@ -33,13 +34,13 @@ class BackupServiceProvider extends ServiceProvider
 
         $this->mergeConfigFrom(__DIR__ . '/../../config/backup.php', 'backup');
  
+        $this->registerDownloadRoute();
+    }
+
+    protected function registerDownloadRoute(): void
+    {
         Route::middleware(config('backup.download_route.middleware', ['web', 'signed']))
-             ->get('/backups/download/{filename}', function ($filename) {
-                 $path = rtrim(config('backup.backup_path', storage_path('app/backups')), '/\\') . '/' . basename($filename);
-                 if (!file_exists($path)) {
-                     abort(404, 'Backup file not found');
-                 }
-                 return response()->download($path);
-             })->name('backup.download');
+        ->get(config('backup.download_route.prefix', '/backups/download') . '/{filename}', [BackupDownloadController::class, 'download'])
+        ->name('backup.download');
     }
 }

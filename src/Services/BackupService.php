@@ -68,7 +68,7 @@ class BackupService
 
         $zip->close();
 
-        $this->enforceRetention($backupPath);
+        $this->enforceRetention($backupPath, basename($zipPath));
 
         $cloudUrl = null;
         if (config('backup.cloud.enabled', false)) {
@@ -79,7 +79,12 @@ class BackupService
         }
 
         if ($sendEmail && config('backup.email.enabled', false)) {
-            $this->sendBackupEmail($cloudUrl ?: $zipPath);
+            $link = $cloudUrl ?: URL::temporarySignedRoute(
+                'backup.download',
+                now()->addHours((int) config('backup.download_link_expiry', 24)),
+                ['filename' => basename($zipPath)]
+            );
+            $this->sendBackupEmail($link);
         }
 
         return $cloudUrl ?: $zipPath;
@@ -96,7 +101,7 @@ class BackupService
         return false;
     }
 
-    protected function enforceRetention(string $backupPath): void
+    protected function enforceRetention(string $backupPath, ?string $protectedFilename = null): void
     {
         if (!config('backup.retention.enabled', false)) {
             return;
@@ -116,7 +121,10 @@ class BackupService
                 ->values();
 
             if ($files->count() > $maxBackups) {
-                foreach ($files->slice($maxBackups - 1) as $file) {
+                foreach ($files->slice($maxBackups) as $file) {
+                    if ($protectedFilename && basename($file) === $protectedFilename) {
+                        continue;
+                    }
                     if (Storage::disk($disk)->exists($file)) {
                         Storage::disk($disk)->delete($file);
                     }
@@ -128,6 +136,9 @@ class BackupService
 
             if (count($files) > $maxBackups) {
                 foreach (array_slice($files, $maxBackups) as $file) {
+                    if ($protectedFilename && basename($file) === $protectedFilename) {
+                        continue;
+                    }
                     unlink($file);
                 }
             }
@@ -162,16 +173,36 @@ class BackupService
     {
         $disk = config('backup.cloud.disk', 'azure');
 
-        if (!array_key_exists($disk, config('filesystems.disks'))) {
+        if (!array_key_exists($disk, (array) config('filesystems.disks'))) {
             throw new \Exception("Cloud disk [$disk] is not configured.");
         }
 
-        $cloudPath = trim(config('backup.cloud.path'), '/') . '/' . basename($zipPath);
-        Storage::disk($disk)->put($cloudPath, file_get_contents($zipPath), 'private');
-
-        return Storage::disk($disk)->temporaryUrl(
-            $cloudPath,
-            now()->addHours(config('backup.cloud.signed_url_expiry', 24))
-        );
+        $cloudPath = trim((string) config('backup.cloud.path'), '/') . '/' . basename($zipPath);
+         
+        $stream = fopen($zipPath, 'r');
+        if ($stream === false) {
+            throw new \Exception('Failed to open backup file for upload');
+        }
+        
+        try {
+            Storage::disk($disk)->put($cloudPath, $stream, 'private');
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }
+ 
+        try {
+            return Storage::disk($disk)->temporaryUrl(
+                $cloudPath,
+                now()->addHours((int) config('backup.cloud.signed_url_expiry', 24))
+            );
+        } catch (\Exception $e) { 
+            if (method_exists(Storage::disk($disk), 'url')) {
+                return Storage::disk($disk)->url($cloudPath);
+            }
+            
+            throw new \Exception("Cloud disk [$disk] does not support temporary URLs. Consider using a different disk or implementing a custom URL generation method.");
+        }
     }
 }
